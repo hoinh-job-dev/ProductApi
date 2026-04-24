@@ -1,0 +1,546 @@
+# Demo PHP Framework Laravel --> Project Product API 
+
+Ubuntu 22.04
+PHP 8.1
+Composer 2.2.6
+Laravel Framework 10.50.2
+
+1. CÀI ĐẶT NHANH
+composer create-project laravel/laravel product-api
+cd product-api
+
+composer require tymon/jwt-auth
+php artisan jwt:secret
+🗄️ 2.DATABASE
+Migration users (thêm role)
+$table->string('role')->default('user');
+Migration products
+php artisan make:model Product -m
+Schema::create('products', function (Blueprint $table) {
+    $table->id();
+    $table->string('name');
+    $table->decimal('price', 10, 2);
+    $table->integer('quantity');
+    $table->timestamps();
+});
+php artisan migrate
+🔐 3. AUTH (JWT)
+config/auth.php
+'defaults' => [
+    'guard' => 'api',
+],
+
+'guards' => [
+    'api' => [
+        'driver' => 'jwt',
+        'provider' => 'users',
+    ],
+],
+AuthController.php
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class AuthController extends Controller
+{
+    public function login(Request $request)
+    {
+        $credentials = $request->only('email', 'password');
+
+        if (!$token = auth()->attempt($credentials)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid credentials'
+            ], 401);
+        }
+
+        return response()->json([
+            'success' => true,
+            'token' => $token,
+            'user' => auth()->user()
+        ]);
+    }
+}
+🛡️ 4. ROLE MIDDLEWARE
+php artisan make:middleware RoleMiddleware
+app/Http/Middleware/RoleMiddleware.php
+namespace App\Http\Middleware;
+
+use Closure;
+
+class RoleMiddleware
+{
+    public function handle($request, Closure $next, ...$roles)
+    {
+        $user = auth()->user();
+
+        if (!$user || !in_array($user->role, $roles)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Forbidden'
+            ], 403);
+        }
+
+        return $next($request);
+    }
+}
+Kernel.php
+'role' => \App\Http\Middleware\RoleMiddleware::class,
+📦 5. PRODUCT API
+php artisan make:controller ProductController
+ProductController.php
+namespace App\Http\Controllers;
+
+use App\Models\Product;
+use Illuminate\Http\Request;
+
+class ProductController extends Controller
+{
+    // GET /products
+    public function index()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => Product::all()
+        ]);
+    }
+
+    // POST /products (admin only)
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required',
+            'price' => 'required|numeric|min:1',
+            'quantity' => 'required|integer|min:0'
+        ]);
+
+        $exists = Product::where('name', $request->name)->first();
+        if ($exists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product already exists'
+            ]);
+        }
+
+        $product = Product::create($request->all());
+
+        return response()->json([
+            'success' => true,
+            'data' => $product
+        ]);
+    }
+
+    // PUT /products/{id}
+    public function update(Request $request, $id)
+    {
+        $product = Product::findOrFail($id);
+        $product->update($request->all());
+
+        return response()->json(['success' => true]);
+    }
+
+    // DELETE /products/{id}
+    public function destroy($id)
+    {
+        Product::destroy($id);
+        return response()->json(['success' => true]);
+    }
+}
+🧭 6. ROUTES
+routes/api.php
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ProductController;
+
+Route::post('/login', [AuthController::class, 'login']);
+
+Route::middleware(['auth:api'])->group(function () {
+
+    Route::get('/products', [ProductController::class, 'index']);
+
+    Route::middleware(['role:admin'])->group(function () {
+        Route::post('/products', [ProductController::class, 'store']);
+        Route::put('/products/{id}', [ProductController::class, 'update']);
+        Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+    });
+});
+🧪 7. TEST API
+Login
+POST /api/login
+Call API
+GET /api/products
+Authorization: Bearer TOKEN
+📘 8. README (copy luôn)
+# Laravel Product API
+
+## Features
+- JWT Authentication
+- Role-based authorization (admin/user)
+- CRUD Product
+- Validation & business logic
+
+## Tech
+- Laravel
+- MySQL
+- JWT
+
+## API
+POST /api/login  
+GET /api/products  
+POST /api/products (admin)  
+PUT /api/products/{id} (admin)  
+DELETE /api/products/{id} (admin)
+
+
+Code hoàn chỉnh (AuthController)
+
+👉 Đây là bản đúng chuẩn + an toàn hơn bản trước
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class AuthController extends Controller
+{
+    public function login(Request $request)
+    {
+        // Validate input
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required'
+        ]);
+
+        $credentials = $request->only('email', 'password');
+
+        // Attempt login
+        if (!$token = auth()->attempt($credentials)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid email or password'
+            ], 401);
+        }
+
+        // Success
+        return response()->json([
+            'success' => true,
+            'token' => $token,
+            'token_type' => 'Bearer',
+            'expires_in' => auth()->factory()->getTTL() * 60,
+            'user' => auth()->user()
+        ]);
+    }
+}
+🗄️ 4. Dữ liệu mẫu (QUAN TRỌNG)
+
+👉 Bạn phải có user trong DB
+
+Tạo nhanh bằng Tinker:
+php artisan tinker
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+
+User::create([
+  'name' => 'Admin',
+  'email' => 'admin@gmail.com',
+  'password' => Hash::make('123456'),
+  'role' => 'admin'
+]);
+🧪 5. Kết quả trả về (SUCCESS)
+{
+  "success": true,
+  "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "user": {
+    "id": 1,
+    "email": "admin@gmail.com",
+    "role": "admin"
+  }
+}
+❌ 6. Lỗi thường gặp
+❌ 401 Unauthorized
+
+👉 Nguyên nhân:
+
+Sai password
+Chưa hash password
+❌ auth()->attempt luôn fail
+
+👉 Fix:
+
+'driver' => 'jwt'
+
+trong config/auth.php
+
+❌ Token không dùng được
+
+👉 Kiểm tra:
+
+php artisan jwt:secret
+🔐 7. Dùng token gọi API
+GET /api/products
+Authorization: Bearer YOUR_TOKEN
+
+👉 Register → Login → Logout → Refresh Token → Profile
+👉 JWT + Role (admin/user)
+
+Bạn có thể copy + chạy + đưa vào CV luôn
+
+🎯 1. Tổng quan API
+API	Method	Mô tả
+/api/register	POST	Đăng ký
+/api/login	POST	Đăng nhập
+/api/logout	POST	Đăng xuất
+/api/refresh	POST	Refresh token
+/api/me	GET	Lấy thông tin user
+⚙️ 2. AuthController FULL
+app/Http/Controllers/AuthController.php
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+
+class AuthController extends Controller
+{
+    // REGISTER
+    public function register(Request $request)
+    {
+        $request->validate([
+            'name' => 'required',
+            'email' => 'required|email|unique:users',
+            'password' => 'required|min:6'
+        ]);
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'role' => 'user'
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User registered successfully'
+        ]);
+    }
+
+    // LOGIN
+    public function login(Request $request)
+    {
+        $credentials = $request->only('email', 'password');
+
+        if (!$token = auth()->attempt($credentials)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid credentials'
+            ], 401);
+        }
+
+        return $this->respondWithToken($token);
+    }
+
+    // PROFILE
+    public function me()
+    {
+        return response()->json([
+            'success' => true,
+            'user' => auth()->user()
+        ]);
+    }
+
+    // LOGOUT
+    public function logout()
+    {
+        auth()->logout();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Successfully logged out'
+        ]);
+    }
+
+    // REFRESH TOKEN
+    public function refresh()
+    {
+        return $this->respondWithToken(auth()->refresh());
+    }
+
+    // RESPONSE TOKEN
+    protected function respondWithToken($token)
+    {
+        return response()->json([
+            'success' => true,
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'expires_in' => auth()->factory()->getTTL() * 60,
+            'user' => auth()->user()
+        ]);
+    }
+}
+🛡️ 3. ROUTES
+routes/api.php
+use App\Http\Controllers\AuthController;
+
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+
+Route::middleware(['auth:api'])->group(function () {
+
+    Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/refresh', [AuthController::class, 'refresh']);
+
+});
+🗄️ 4. USER MODEL (QUAN TRỌNG)
+app/Models/User.php
+use Tymon\JWTAuth\Contracts\JWTSubject;
+
+class User extends Authenticatable implements JWTSubject
+{
+    protected $fillable = ['name', 'email', 'password', 'role'];
+
+    protected $hidden = ['password'];
+
+    public function getJWTIdentifier()
+    {
+        return $this->getKey();
+    }
+
+    public function getJWTCustomClaims()
+    {
+        return [
+            'role' => $this->role
+        ];
+    }
+}
+🧪 5. TEST FLOW
+1. Register
+POST /api/register
+{
+  "name": "Hoi",
+  "email": "hoi@gmail.com",
+  "password": "123456"
+}
+2. Login
+POST /api/login
+{
+  "email": "hoi@gmail.com",
+  "password": "123456"
+}
+
+👉 lấy token
+
+3. Get Profile
+GET /api/me
+Authorization: Bearer TOKEN
+4. Refresh Token
+POST /api/refresh
+Authorization: Bearer TOKEN
+5. Logout
+POST /api/logout
+Authorization: Bearer TOKEN
+
+hướng dẫn bạn đúng – rõ – test chạy được ngay cho API:
+
+🎯 API:
+GET /api/products  
+Authorization: Bearer TOKEN
+🧩 1. Điều kiện để chạy được
+
+Bạn phải có đủ 3 thứ:
+
+✅ 1. Route đúng
+Route::middleware(['auth:api'])->group(function () {
+    Route::get('/products', [ProductController::class, 'index']);
+});
+✅ 2. Controller có method index
+public function index()
+{
+    return response()->json([
+        'success' => true,
+        'data' => Product::all()
+    ]);
+}
+✅ 3. Có dữ liệu trong DB
+php artisan tinker
+Product::create([
+  'name' => 'Test Product',
+  'price' => 100,
+  'quantity' => 10
+]);
+🔐 2. Cách lấy TOKEN đúng
+Gọi:
+POST /api/login
+
+Body:
+
+{
+  "email": "admin@gmail.com",
+  "password": "123456"
+}
+
+👉 Copy:
+
+access_token
+🧪 3. Test bằng Postman
+Header:
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJh...
+Hoặc curl:
+curl -X GET http://localhost:8000/api/products \
+-H "Authorization: Bearer YOUR_TOKEN"
+✅ 4. Kết quả đúng
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Test Product",
+      "price": "100.00",
+      "quantity": 10
+    }
+  ]
+}
+❌ 5. Lỗi thường gặp (90% bạn sẽ dính 1 trong số này)
+❌ 401 Unauthorized
+
+👉 Nguyên nhân:
+
+Quên header Authorization
+Token sai
+Token hết hạn
+❌ Token không nhận
+
+👉 Fix:
+
+php artisan jwt:secret
+php artisan config:clear
+❌ auth:api không hoạt động
+
+👉 Kiểm tra:
+
+'driver' => 'jwt'
+
+trong config/auth.php
+
+❌ Bearer sai format
+
+👉 Sai:
+
+Authorization: TOKEN
+
+👉 Đúng:
+
+Authorization: Bearer TOKEN
+🔥 6. Nếu muốn test nhanh (bỏ auth tạm)
+
+👉 sửa route:
+
+Route::get('/products', [ProductController::class, 'index']);
+
+→ Nếu chạy được = lỗi nằm ở JWT
+
+
