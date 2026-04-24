@@ -19,8 +19,6 @@ use App\Http\Controllers\ProductController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-//Route::get('/products', [ProductController::class, 'index']);
-
 Route::middleware(['auth:api'])->group(function () {
 
     Route::get('/me', [AuthController::class, 'me']);
@@ -35,7 +33,3 @@ Route::middleware(['auth:api'])->group(function () {
         Route::delete('/products/{id}', [ProductController::class, 'destroy']);
     });
 });
-
-// Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-//     return $request->user();
-// });

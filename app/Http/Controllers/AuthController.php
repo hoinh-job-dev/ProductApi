@@ -33,7 +33,7 @@ class AuthController extends Controller
         ]);
     }
 
-    //login
+    //LOGIN
     public function login(Request $request)
     {
         // Validate input
