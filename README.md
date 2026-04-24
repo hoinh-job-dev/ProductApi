@@ -1,4 +1,4 @@
-# Laravel Product API
+# PHP Laravel Product API
 
 ## Features
 - AUTH FLOW
@@ -18,8 +18,8 @@
 POST /api/register
 POST /api/login  
 POST /api/logout
-POST /api/refresh       #refresh token
-GET /api/me             #get user information
+POST /api/refresh       //refresh token
+GET /api/me             //get user information
 
 GET /api/products  
 POST /api/products (admin)  
