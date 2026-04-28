@@ -1,56 +1,96 @@
 # PHP Laravel Product API (Laravel)
 
+## Description
+Backend API for managing products with authentication and role-based access control.
+
 ## Features
-- AUTH FLOW
-  👉 Register → Login → Logout → Refresh Token → Profile
-  👉 JWT + Role (admin/user)
+- RESTful API design
 - JWT Authentication
 - Role-based authorization (admin/user)
 - CRUD Product
-- Validation & business logic
+- Middleware validation
+- Database optimization
+
 
 ## Tech
-- Laravel
+- PHP(Laravel)
 - MySQL
 - JWT
 
-## Run
- - composer create-project laravel/laravel ProductApi
- - cd ProductApi
- - composer require tymon/jwt-auth
- - php artisan jwt:secret
- 
- - Test:
- - Bash: php artisan make:model Product -m ==> PHP: Schema::create('products', function (Blueprint $table) {
-						    $table->id();
-						    $table->string('name');
-						    $table->decimal('price', 10, 2);
-						    $table->integer('quantity');
-						    $table->timestamps();
-						});
- 
- - php artisan migrate
- - php artisan make:middleware RoleMiddleware
- - php artisan make:controller ProductController
- 
- - ex use case postman tool
- - POST /api/login
- - POST /api/login  
- - GET /api/products  
- - POST /api/products (admin)  
- - PUT /api/products/{id} (admin)  
- - DELETE /api/products/{id} (admin)
+## ⚙️ Setup
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan serve
 
+## Example Flow
 
+### Step 1: Login
+POST /api/login
+
+Response:
+{
+  "access_token": "..."
+}
+
+---
+
+### Step 2: Call API
+GET /api/products
+
+Header:
+Authorization: Bearer TOKEN
+
+---
+
+### Step 3: Admin action
+POST /api/products
+
+Only admin can perform this action.
+
+```
 ## API
+
+- Authentication Flow
+Login to get token
+POST /api/login
+Use token for API
+
+- Authorization: Bearer TOKEN
+API Endpoints
+Login
+
+- POST /api/login
 POST /api/register
-POST /api/login  
+POST /api/login 
 POST /api/logout
 POST /api/refresh       //refresh token
 GET /api/me             //get user information
 
-GET /api/products  
-POST /api/products (admin)  
-PUT /api/products/{id} (admin)  
+Get Products
+GET /api/products
+Create Product (Admin only)
+POST /api/products
+PUT /api/products/{id} (admin) 
 DELETE /api/products/{id} (admin)
+
+
+- Business Flow
+User login
+System returns JWT token
+User calls API with token
+Admin can create/update/delete product
+Normal user can only view products
+
+- Demo (Optional)
+
+You can test API using Postman.
+
+## Postman Collection
+Download here: ./postman_collection.json
+
+- Author
+Nguyen Hai Hoi
 
